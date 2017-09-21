@@ -89,6 +89,163 @@ rpm -qi edns_dial 查看 rpm 包安装程序的详细信息
 
 
 
+## spec 文件举例 
+
+Name:		edns_dial		
+Version:	1.1.1.8
+Release:	1%{?dist}
+Summary:	dial	
+
+Group:		Applications/Internet
+License:	GPL
+URL:		http://www.yamutech.com
+Source0:	%{name}-%{version}.tar.gz
+
+BuildRoot:      %{_topdir}/BUILDROOT
+
+#BuildRequires:	
+#Requires:		
+
+#%define debug_package %{nil}
+#%define __strip /bin/true
+#含有调试信息
+
+%description
+dial
+
+%prep
+%setup -q
+
+
+%build
+make %{?_smp_mflags}
+#mkdir -p %{buildroot}/%{_bindir}
+#mkdir -p %{buildroot}/%{_sysconfdir}
+
+
+%install
+rm -rf %{buildroot}
+mkdir -p %{buildroot}/%{_bindir}
+#mkdir -p %{buildroot}/%{_libdir}
+mkdir -p %{buildroot}/%{_sysconfdir}
+mkdir -p %{buildroot}/%{_sysconfdir}/init.d
+install -m 755 edns_dial %{buildroot}/%{_bindir}/edns_dial
+#install -m 755 libmysqlclient.so.18 %{buildroot}/%{_libdir}/libmysqlclient.so.18
+install -m 755 config/dial_config %{buildroot}/%{_sysconfdir}/dial_config
+install -m 755 config/dial_cert.pem %{buildroot}/%{_sysconfdir}/dial_cert.pem
+install -m 755 ydial %{buildroot}/%{_sysconfdir}/init.d/ydial
+
+
+%clean
+rm -rf %{buildroot}
+#rm -rf %{_topdir}/BUILDROOT
+#rm -rf %{_builddir}
+rm -rf %{_topdir}/BUILD/%{name}-%{version}
+rm -rf %{_topdir}/SOURCES/%{name}-%{version}.tar.gz
+rm -rf %{_topdir}/SPECS/%{name}-%{version}.spec
+
+
+%post
+chkconfig --add ydial
+
+
+%files
+%defattr(-,root,root,-)
+%{_bindir}/edns_dial
+%{_sysconfdir}/dial_config
+%{_sysconfdir}/dial_cert.pem
+%{_sysconfdir}/init.d/ydial
+
+#/usr/bin/ends_dial
+#/usr/lib64/libmysqlclient.so.18
+#/etc/dial_config
+#/etc/dial_cert.pem
+
+
+%preun
+chkconfig --del ydial
+
+%changelog
+
+
+## 启动脚本 
+
+#!/bin/bash
+
+#edns_dial	start/stop manager
+
+#Authors: yamu, 2016, <yamu@yamutech.com>
+
+#chkconfig: 345 13 87
+#description: edns_dial start/stop manager
+
+#processname: /usr/bin/edns_dial
+#pidfile: /var/run/edns_dial.pid
+
+#source function library
+. /etc/rc.d/init.d/functions
+
+RETVAR=0
+PROG="edns_dial"
+LOCK_FILE=/var/lock/subsys/edns_dial
+pidfile=/var/run/edns_dial.pid
+EDNS_DIAL_BIN=/usr/bin/edns_dial
+kill_pid=/var/run/edns_dial.kill
+
+case "$1" in
+	start)
+		echo "Starting edns_dial: "
+			daemon --pidfile=$pidfile ${EDNS_DIAL_BIN} start 
+			RETVAR=$?
+		if [ $RETVAR -ne 0 ]
+		then
+			exit 6
+		fi
+		
+		echo "$(pgrep edns_dial|head -1)" > $pidfile
+		touch ${LOCK_FILE}
+		;;
+
+	stop)
+		echo -n $"Shutting down $PROG: "
+		if [ -f $pidfile ]
+		then
+			echo "$(pgrep edns_dial|head -2)" > $kill_pid
+			for pid in `cat $kill_pid`
+			do
+				kill -9 $pid
+			done
+			RETVAR=$?
+			rm -f $pidfile
+		else
+			echo "$(pgrep edns_dial|head -2)" > $kill_pid
+			for pid in `cat $kill_pid`
+			do
+				kill -9 $pid
+			done
+			RETVAR=$?
+		fi
+		[ $RETVAR -ne 0 ] && exit 6
+		rm -f $LOCK_FILE
+		;;
+
+	restart|reload|force-reload)
+		$0 stop
+		$0 start
+		RETVAR=$?
+		;;
+
+	status)
+		status $EDNS_DIAL_BIN
+		RETVAR=$?
+		;;
+	*)
+		echo $"Usage: $0 {start|stop|restart|reload|force-reload|status}"
+		exit 2
+		;;
+esac
+
+exit $RETVAR
 
 
 
