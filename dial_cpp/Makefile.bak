@@ -1,0 +1,60 @@
+include ../Makefile.in
+TGT=dial
+
+
+SRCS=$(wildcard *.cpp)
+TOP=$(shell pwd)
+
+COMPILE_FLAGS= -g -W  -O2 -DHAVE_NETINET_IN_H -I. -I./include -I"$(CLIB)/include"
+
+LIBRAYS=  -lthriftnb -levent -lthrift -lrt -pthread -L $(CLIB)/lib -lclib_`uname -m`
+
+TGT_PLACE=$(TOP)/out
+DEP=dep
+
+CC=g++
+#DIAL_PACKET=dial_query.tar.gz
+#INSTALL_PACKET=dial_core_install.bin.tar
+
+ifeq ($(TYPE),debug)
+	COMPILE_FLAGS +=-DDEBUG
+endif
+
+all:$(TGT)
+	@echo [LD] $(TGT) ;\
+$(CC) $(SRCS:.cpp=.o) -o $(TGT) $(LIBRAYS)
+
+$(TGT):$(SRCS:.cpp=.o)
+
+	$(CC) -o $@ $^ $(LIBRAYS) $(COMPILE_FLAGS) 
+	
+
+$(SRCS:.cpp=.o):
+	$(CC) -c $< $(COMPILE_FLAGS) $(LIBRAYS)
+
+
+$(DEP): $(SRCS)
+	$(CC) -I $(TOP)/include/ -MM  $(SRCS)  > $@
+	sed -i "s/: / $@: /g" $@
+
+sinclude $(DEP)
+
+
+	
+.PHONY:clean install 
+
+
+install: all
+	@echo [INSTALL] $(TGT) ;\
+install -D $(TGT) $(BUILD_PATH)\$(BINDIR)/$(TGT);\
+install	-D ./config/dial_config $(BUILD_PATH)\$(CONFDIR)/dial_config;\
+
+
+clean:
+	rm -rf $(TGT) $(DEP) $(SRCS:.cpp=.o) $(TGT_PLACE)/*
+
+
+
+
+
+
